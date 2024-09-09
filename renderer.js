@@ -39,3 +39,30 @@ function updateUIForLoggedInState() {
 if (store.get('notionToken')) {
     updateUIForLoggedInState();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const resizeHandle = document.getElementById('resize-handle');
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = document.documentElement.clientWidth;
+        startHeight = document.documentElement.clientHeight;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+
+        const newWidth = startWidth + (e.clientX - startX);
+        const newHeight = startHeight + (e.clientY - startY);
+
+        ipcRenderer.send('resize-window', newWidth, newHeight);
+    });
+
+    document.addEventListener('mouseup', () => {
+        isResizing = false;
+    });
+});

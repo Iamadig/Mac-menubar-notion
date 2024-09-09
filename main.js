@@ -7,15 +7,29 @@ let tray = null;
 let window = null;
 let authWindow = null;
 
+// Configuration for window size
+const config = {
+  width: 300,
+  height: 450,
+  minWidth: 250,
+  minHeight: 400,
+  maxWidth: 800,
+  maxHeight: 600
+};
+
 function createWindow() {
   window = new BrowserWindow({
-    width: 300,
-    height: 450,
+    width: config.width,
+    height: config.height,
+    minWidth: config.minWidth,
+    minHeight: config.minHeight,
+    maxWidth: config.maxWidth,
+    maxHeight: config.maxHeight,
     show: false,
     frame: false,
     fullscreenable: false,
-    resizable: false,
-    transparent: true,
+    resizable: true,
+    transparent: false, // Changed to false for debugging
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -29,6 +43,16 @@ function createWindow() {
       window.hide();
     }
   });
+
+  // Add resize event listener
+  window.on('resize', () => {
+    const [width, height] = window.getSize();
+    config.width = width;
+    config.height = height;
+  });
+
+  // Open DevTools for debugging
+  window.webContents.openDevTools({ mode: 'detach' });
 }
 
 function createTray() {
@@ -36,14 +60,18 @@ function createTray() {
   tray.setIgnoreDoubleClickEvents(true);
 
   tray.on('click', (event) => {
+    console.log('Tray clicked'); // Debugging log
     toggleWindow();
   });
 }
 
 function toggleWindow() {
+  console.log('Toggle window called'); // Debugging log
   if (window.isVisible()) {
+    console.log('Window is visible, hiding it'); // Debugging log
     window.hide();
   } else {
+    console.log('Window is hidden, showing it'); // Debugging log
     showWindow();
   }
 }
@@ -60,12 +88,15 @@ function showWindow() {
     y = Math.round(trayPos.y - windowPos.height);
   }
 
+  console.log(`Setting window position to x: ${x}, y: ${y}`); // Debugging log
   window.setPosition(x, y, false);
+  window.setSize(config.width, config.height); // Set size from config
   window.show();
   window.focus();
 }
 
 app.on('ready', () => {
+  console.log('App is ready'); // Debugging log
   createTray();
   createWindow();
 });
@@ -106,5 +137,12 @@ ipcMain.handle('exchange-code', async (event, code) => {
   } catch (error) {
     console.error('Error exchanging code for token:', error);
     throw error;
+  }
+});
+
+// Add this new IPC handler
+ipcMain.on('resize-window', (event, width, height) => {
+  if (window) {
+    window.setSize(width, height);
   }
 });
