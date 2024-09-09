@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { app, BrowserWindow, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
@@ -122,7 +123,7 @@ ipcMain.on('start-oauth', (event) => {
     'web-security': false
   });
 
-  const authUrl = 'https://api.notion.com/v1/oauth/authorize?client_id=YOUR_CLIENT_ID&response_type=code&owner=user&redirect_uri=http://localhost:3000/callback';
+  const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=http://localhost:3000/callback`;
   authWindow.loadURL(authUrl);
   authWindow.show();
 

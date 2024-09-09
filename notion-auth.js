@@ -1,8 +1,10 @@
+require('dotenv').config();
+
 const axios = require('axios');
 const { BrowserWindow } = require('electron');
 
-const CLIENT_ID = 'YOUR_CLIENT_ID';
-const CLIENT_SECRET = 'YOUR_CLIENT_SECRET';
+const CLIENT_ID = process.env.NOTION_CLIENT_ID;
+const CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/callback';
 
 function handleAuthCallback(event, url) {
