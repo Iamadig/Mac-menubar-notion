@@ -11,6 +11,16 @@ This application provides a convenient way to access Notion directly from your M
 - Quick access to Notion from the macOS menubar
 - Easy note-taking interface
 - Direct link to your Notion workspace
+- OAuth authentication with Notion
+- Remembers last visited Notion page
+- Resizable window
+
+## Prerequisites
+
+- Node.js (v14 or later recommended)
+- npm (usually comes with Node.js)
+- Notion account
+- Notion API integration set up (to obtain CLIENT_ID and CLIENT_SECRET)
 
 ## Installation
 
@@ -25,6 +35,11 @@ This application provides a convenient way to access Notion directly from your M
 3. Install dependencies:
    ```
    npm install
+   ```
+4. Create a `.env` file in the root directory and add your Notion API credentials:
+   ```
+   NOTION_CLIENT_ID=your_client_id_here
+   NOTION_CLIENT_SECRET=your_client_secret_here
    ```
 
 ## Usage
