@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Mac Menubar Notion</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,7 +19,7 @@
             height: 100%;
         }
 
-        #login-button {
+        #loginBtn {
             background-color: #2eaadc;
             color: white;
             border: none;
@@ -29,8 +30,12 @@
             transition: background-color 0.3s;
         }
 
-        #login-button:hover {
+        #loginBtn:hover {
             background-color: #2180a3;
+        }
+
+        #pageUrl, #openPageBtn {
+            display: none;
         }
 
         #resize-handle {
@@ -46,9 +51,10 @@
 </head>
 <body>
     <div id="login-container">
-        <button id="login-button">Login with Notion</button>
+        <button id="loginBtn">Login with Notion</button>
     </div>
-
+    <input type="text" id="pageUrl" placeholder="Enter Notion page URL">
+    <button id="openPageBtn">Open Page</button>
     <div id="resize-handle"></div>
 
     <script src="renderer.js"></script>

@@ -3,6 +3,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
 const { handleAuthCallback, exchangeCodeForToken } = require('./notion-auth');
+const Store = require('electron-store');
 
 let tray = null;
 let window = null;
@@ -17,6 +18,8 @@ const config = {
   maxWidth: 800,
   maxHeight: 600
 };
+
+const store = new Store();
 
 function createWindow() {
   window = new BrowserWindow({
@@ -115,30 +118,92 @@ app.on('activate', () => {
 });
 
 ipcMain.on('start-oauth', (event) => {
+  console.log('start-oauth event received');
+
+  if (!process.env.NOTION_CLIENT_ID) {
+    console.error('Notion Client ID is not configured');
+    event.reply('oauth-error', 'Notion Client ID is not configured');
+    return;
+  }
+
+  if (authWindow) {
+    authWindow.focus();
+    return;
+  }
+
   authWindow = new BrowserWindow({
     width: 800,
     height: 600,
     show: false,
-    'node-integration': false,
-    'web-security': false
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
   });
 
-  const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=http://localhost:3000/callback`;
+  const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback`;
+  console.log('Auth URL:', authUrl);
+
   authWindow.loadURL(authUrl);
   authWindow.show();
 
-  authWindow.webContents.on('will-navigate', handleAuthCallback);
-  authWindow.webContents.on('will-redirect', handleAuthCallback);
+  authWindow.webContents.on('will-navigate', (event, url) => {
+    console.log('will-navigate event:', url);
+    handleAuthCallback(url);
+  });
+  authWindow.webContents.on('will-redirect', (event, url) => {
+    console.log('will-redirect event:', url);
+    handleAuthCallback(url);
+  });
+  authWindow.webContents.on('did-navigate', (event, url) => {
+    console.log('did-navigate event:', url);
+    handleAuthCallback(url);
+  });
+
+  authWindow.on('closed', () => {
+    authWindow = null;
+  });
 });
 
-ipcMain.handle('exchange-code', async (event, code) => {
+ipcMain.on('auth-success', (event, code) => {
+  console.log('Auth success received in main process');
+  if (window && window.webContents) {
+    window.webContents.send('auth-success', code);
+  }
+  if (authWindow) {
+    authWindow.close();
+  }
+});
+
+ipcMain.on('auth-error', (event, message) => {
+  console.log('Auth error received in main process:', message);
+  if (window && window.webContents) {
+    window.webContents.send('auth-error', message);
+  }
+  if (authWindow) {
+    authWindow.close();
+  }
+});
+
+ipcMain.handle('exchange-code', async (event) => {
   try {
-    const token = await exchangeCodeForToken(code);
+    const token = await exchangeCodeForToken();
+    store.set('notionToken', token);
     return token;
   } catch (error) {
     console.error('Error exchanging code for token:', error);
     throw error;
   }
+});
+
+// Add new IPC handlers for checking auth status and logging out
+ipcMain.handle('check-auth', (event) => {
+  return !!store.get('notionToken');
+});
+
+ipcMain.handle('logout', (event) => {
+  store.delete('notionToken');
+  return true;
 });
 
 // Add this new IPC handler

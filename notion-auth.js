@@ -1,51 +1,62 @@
-require('dotenv').config();
-
 const axios = require('axios');
-const { BrowserWindow } = require('electron');
+const { ipcMain } = require('electron');
 
-const CLIENT_ID = process.env.NOTION_CLIENT_ID;
-const CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET;
-const REDIRECT_URI = 'http://localhost:3000/callback';
+let authorizationCode = null;
 
-function handleAuthCallback(event, url) {
-    const rawCode = /code=([^&]*)/.exec(url) || null;
-    const code = (rawCode && rawCode.length > 1) ? rawCode[1] : null;
-    const error = /\?error=(.+)$/.exec(url);
-
-    if (code || error) {
-        // Close the browser if code found or error
-        BrowserWindow.getFocusedWindow().close();
+async function handleAuthCallback(url) {
+    console.log('handleAuthCallback called with URL:', url);
+    const urlObj = new URL(url);
+    const code = urlObj.searchParams.get('code');
+    const error = urlObj.searchParams.get('error');
+    
+    if (error) {
+        console.error('OAuth error:', error);
+        ipcMain.emit('auth-error', null, error);
+        return;
     }
-
+    
     if (code) {
-        BrowserWindow.getAllWindows()[0].webContents.send('auth-success', code);
-    } else if (error) {
-        console.error('Oauth error:', error);
+        console.log('Authorization code received:', code);
+        authorizationCode = code;
+        ipcMain.emit('auth-success', null, code);
+    } else {
+        console.log('No code found in URL, waiting for redirect');
+        // Don't emit an error here, as this might be an intermediate step
     }
 }
 
-async function exchangeCodeForToken(code) {
+async function exchangeCodeForToken() {
+    console.log('Exchanging code for token');
+    if (!process.env.NOTION_CLIENT_ID || !process.env.NOTION_CLIENT_SECRET) {
+        throw new Error('Notion credentials are not properly configured');
+    }
+
+    if (!authorizationCode) {
+        throw new Error('No authorization code available');
+    }
+
     try {
         const response = await axios.post('https://api.notion.com/v1/oauth/token', {
             grant_type: 'authorization_code',
-            code: code,
-            redirect_uri: REDIRECT_URI,
-            client_id: CLIENT_ID,
-            client_secret: CLIENT_SECRET
+            code: authorizationCode,
+            redirect_uri: 'http://localhost:3000/callback'
         }, {
+            auth: {
+                username: process.env.NOTION_CLIENT_ID,
+                password: process.env.NOTION_CLIENT_SECRET
+            },
             headers: {
                 'Content-Type': 'application/json'
             }
         });
 
+        console.log('Token exchange successful');
+        authorizationCode = null; // Clear the code after successful exchange
         return response.data.access_token;
     } catch (error) {
-        console.error('Error exchanging code for token:', error);
+        console.error('Error exchanging code for token:', error.response ? error.response.data : error.message);
         throw error;
     }
 }
 
-module.exports = {
-    handleAuthCallback,
-    exchangeCodeForToken
-};
+module.exports = { handleAuthCallback, exchangeCodeForToken };
