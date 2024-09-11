@@ -1,6 +1,4 @@
 require('dotenv').config();
-console.log('NOTION_CLIENT_ID:', process.env.NOTION_CLIENT_ID);
-console.log('NOTION_CLIENT_SECRET:', process.env.NOTION_CLIENT_SECRET);
 const { app, BrowserWindow, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
