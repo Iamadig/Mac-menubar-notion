@@ -1,34 +1,27 @@
-const { ipcRenderer, shell } = require('electron');
-const Store = require('electron-store');
-
-const store = new Store();
-
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM content loaded');
     const loginBtn = document.getElementById('loginBtn');
-    const pageUrlInput = document.getElementById('pageUrl');
-    const openPageBtn = document.getElementById('openPageBtn');
+    const notionWebview = document.getElementById('notionWebview');
     const resizeHandle = document.getElementById('resize-handle');
 
+    console.log('loginBtn:', loginBtn);
+    console.log('notionWebview:', notionWebview);
+    console.log('resizeHandle:', resizeHandle);
+
     if (loginBtn) {
+        console.log('Login button found');
         loginBtn.addEventListener('click', () => {
-            console.log('Login button clicked'); // Debugging log
-            ipcRenderer.send('start-oauth');
+            console.log('Login button clicked');
+            window.electron.startOAuth();
         });
+    } else {
+        console.error('Login button not found');
     }
 
-    if (openPageBtn && pageUrlInput) {
-        openPageBtn.addEventListener('click', () => {
-            const pageUrl = pageUrlInput.value;
-            if (pageUrl) {
-                shell.openExternal(pageUrl);
-            }
-        });
-    }
-
-    ipcRenderer.on('auth-success', async (event, code) => {
+    window.electron.onAuthSuccess(async (event, code) => {
         console.log('Auth success received in renderer process');
         try {
-            const token = await ipcRenderer.invoke('exchange-code');
+            const token = await window.electron.exchangeCode();
             console.log('Token received:', token);
             updateUIForLoggedInState();
         } catch (error) {
@@ -37,23 +30,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    ipcRenderer.on('auth-error', (event, message) => {
-        console.error('Authentication error received in renderer process:', message);
-        alert('Authentication error: ' + message);
-    });
-
     function updateUIForLoggedInState() {
         if (loginBtn) loginBtn.style.display = 'none';
-        if (pageUrlInput) pageUrlInput.style.display = 'block';
-        if (openPageBtn) openPageBtn.style.display = 'block';
+        if (notionWebview) {
+            notionWebview.style.display = 'block';
+            loadLastPage();
+        }
     }
 
-    // Check if user is already logged in
-    if (store.get('notionToken')) {
-        updateUIForLoggedInState();
+    async function loadLastPage() {
+        const lastPage = await window.electron.getLastPage();
+        notionWebview.src = lastPage;
     }
 
-    // Resize functionality
+    if (notionWebview) {
+        notionWebview.addEventListener('dom-ready', () => {
+            notionWebview.setZoomFactor(1);
+            notionWebview.style.width = '100%';
+            notionWebview.style.height = '100%';
+            notionWebview.insertCSS(`
+                body { overflow: hidden; }
+            `);
+            notionWebview.addEventListener('console-message', (e) => {
+                console.log('Webview console:', e.message);
+            });
+        });
+
+        notionWebview.addEventListener('did-navigate', (event) => {
+            window.electron.setLastPage(event.url);
+        });
+
+        // Add these lines to enable interaction
+        notionWebview.setAttribute('allowpopups', '');
+        notionWebview.setAttribute('webpreferences', 'contextIsolation=no, nodeIntegration=yes');
+    }
+
+    const { ipcRenderer } = require('electron');
+    const webview = document.getElementById('notion-webview');
+
+    ipcRenderer.on('window-resized', (event, { width, height }) => {
+        webview.style.width = `${width}px`;
+        webview.style.height = `${height}px`;
+    });
+
     if (resizeHandle) {
         let isResizing = false;
         let startX, startY, startWidth, startHeight;
@@ -72,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newWidth = startWidth + (e.clientX - startX);
             const newHeight = startHeight + (e.clientY - startY);
 
-            ipcRenderer.send('resize-window', newWidth, newHeight);
+            window.electron.resizeWindow(newWidth, newHeight);
         });
 
         document.addEventListener('mouseup', () => {
@@ -80,14 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Error handling
-    ipcRenderer.on('oauth-error', (event, message) => {
-        console.error('OAuth error:', message);
-        alert('OAuth error: ' + message);
-    });
-
-    ipcRenderer.on('auth-error', (event, message) => {
+    window.electron.onAuthError((event, message) => {
         console.error('Authentication error:', message);
         alert('Authentication error: ' + message);
     });
+
+    // Check if user is already logged in
+    const isLoggedIn = await window.electron.isLoggedIn();
+    if (isLoggedIn) {
+        updateUIForLoggedInState();
+    }
 });
+
+console.log('Renderer script loaded');
+console.log('window.electron:', window.electron);

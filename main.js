@@ -1,4 +1,6 @@
 require('dotenv').config();
+console.log('NOTION_CLIENT_ID:', process.env.NOTION_CLIENT_ID);
+console.log('NOTION_CLIENT_SECRET:', process.env.NOTION_CLIENT_SECRET);
 const { app, BrowserWindow, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
@@ -22,41 +24,60 @@ const config = {
 const store = new Store();
 
 function createWindow() {
-  window = new BrowserWindow({
-    width: config.width,
-    height: config.height,
-    minWidth: config.minWidth,
-    minHeight: config.minHeight,
-    maxWidth: config.maxWidth,
-    maxHeight: config.maxHeight,
-    show: false,
-    frame: false,
-    fullscreenable: false,
-    resizable: true,
-    transparent: false, // Changed to false for debugging
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
+  try {
+    window = new BrowserWindow({
+      width: config.width,
+      height: config.height,
+      minWidth: config.minWidth,
+      minHeight: config.minHeight,
+      maxWidth: config.maxWidth,
+      maxHeight: config.maxHeight,
+      show: false,
+      frame: false,
+      fullscreenable: false,
+      resizable: true,
+      transparent: false, // Changed to false for debugging
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        webviewTag: true,
+        preload: path.join(__dirname, 'preload.js'),
+        webSecurity: false, // Be cautious with this setting
+        allowRunningInsecureContent: true // Be cautious with this setting
+      }
+    });
 
-  window.loadFile('index.html');
+    window.loadFile('index.html');
 
-  window.on('blur', () => {
-    if (!window.webContents.isDevToolsOpened()) {
-      window.hide();
-    }
-  });
+    window.webContents.on('did-finish-load', () => {
+      console.log('Window loaded successfully');
+    });
 
-  // Add resize event listener
-  window.on('resize', () => {
-    const [width, height] = window.getSize();
-    config.width = width;
-    config.height = height;
-  });
+    window.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('Failed to load window:', errorCode, errorDescription);
+    });
 
-  // Open DevTools for debugging
-  window.webContents.openDevTools({ mode: 'detach' });
+    // Add resize event listener
+    window.on('resize', () => {
+      const [width, height] = window.getSize();
+      config.width = width;
+      config.height = height;
+      window.webContents.send('window-resized', { width, height });
+    });
+
+    // Open DevTools for debugging
+    window.webContents.openDevTools({ mode: 'detach' });
+
+    // Enable webview interactions
+    window.webContents.on('did-attach-webview', (event, webContents) => {
+      webContents.setWindowOpenHandler(({ url }) => {
+        require('electron').shell.openExternal(url);
+        return { action: 'deny' };
+      });
+    });
+  } catch (error) {
+    console.error('Error creating window:', error);
+  }
 }
 
 function createTray() {
@@ -118,7 +139,7 @@ app.on('activate', () => {
 });
 
 ipcMain.on('start-oauth', (event) => {
-  console.log('start-oauth event received');
+  console.log('start-oauth event received in main process');
 
   if (!process.env.NOTION_CLIENT_ID) {
     console.error('Notion Client ID is not configured');
@@ -196,14 +217,12 @@ ipcMain.handle('exchange-code', async (event) => {
   }
 });
 
-// Add new IPC handlers for checking auth status and logging out
-ipcMain.handle('check-auth', (event) => {
-  return !!store.get('notionToken');
+ipcMain.handle('get-last-page', (event) => {
+  return store.get('lastNotionPage', 'https://www.notion.so/');
 });
 
-ipcMain.handle('logout', (event) => {
-  store.delete('notionToken');
-  return true;
+ipcMain.handle('set-last-page', (event, url) => {
+  store.set('lastNotionPage', url);
 });
 
 // Add this new IPC handler
@@ -211,4 +230,9 @@ ipcMain.on('resize-window', (event, width, height) => {
   if (window) {
     window.setSize(width, height);
   }
+});
+
+// Add this near the other ipcMain handlers
+ipcMain.handle('is-logged-in', () => {
+  return !!store.get('notionToken');
 });

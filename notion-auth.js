@@ -46,7 +46,8 @@ async function exchangeCodeForToken() {
                 password: process.env.NOTION_CLIENT_SECRET
             },
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
             }
         });
 
