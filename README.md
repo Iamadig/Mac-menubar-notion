@@ -45,3 +45,18 @@ This application provides a convenient way to access Notion directly from your M
 ## Usage
 
 To start the application:
+
+1. Open a terminal and navigate to the project directory.
+2. Run the following command:
+   ```
+   npm start
+   ```
+3. The application will launch and appear in your macOS menubar.
+4. Click on the menubar icon to open the Notion interface.
+5. If you haven't logged in before, you'll be prompted to authenticate with your Notion account.
+6. Once authenticated, you can start using Notion directly from the menubar.
+
+### Tips:
+- You can resize the window by dragging the bottom-right corner.
+- The application remembers your last visited page in Notion.
+- To quit the application, right-click on the menubar icon and select "Quit".
